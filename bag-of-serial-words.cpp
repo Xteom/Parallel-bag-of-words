@@ -3,14 +3,16 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <chrono>
 
 using namespace std;
 
 
 //carga el vocabulario en un array de strings
 //para simplificar el código el vocabulario y su size se obtienen del jupyter notebook
-void load_vocabulary(string file_name, string* vocabulario, long long int vocabulario_size) {
-    ifstream in("data/"+file_name);
+void load_vocabulary(string file_name, string* vocabulario, long long int vocabulario_size,
+                    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {
+    ifstream in(path+"data/"+file_name);
     if (!in) {
         cerr << "Couldn't read file: " << file_name << "\n";
     }
@@ -24,9 +26,10 @@ void load_vocabulary(string file_name, string* vocabulario, long long int vocabu
 
 //cuenta las palabras de varios archivos y las guarda en sus diccionarios
 void count_words(string* libros, long long int libros_size, 
-                map<string, int>* diccionarios) {
+                map<string, int>* diccionarios,
+                string path = "O:/itam/ComParalelo/Parallel-bag-of-words/") {
     for (long long int i = 0; i < libros_size; i++) {
-        ifstream in("data/"+libros[i]+".txt");
+        ifstream in(path+"data/"+libros[i]+".txt");
         if (!in) {
             cerr << "Couldn't read file: " << libros[i] << "\n";
         }
@@ -44,11 +47,12 @@ void count_words(string* libros, long long int libros_size,
 }
 
 //guarda la matriz en csv
-void matrix_to_CSV(string file_name, map<string, int>* diccionarios, int libros_size, string* vocabulario, long long int vocabulario_size) {
+void matrix_to_CSV(string file_name, map<string, int>* diccionarios, int libros_size, string* vocabulario, long long int vocabulario_size,
+                    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {
     fstream fout;
-    fout.open(file_name, ios::out);
+    fout.open(path+"res/"+file_name, ios::out);
     //recorre los libros
-    for (long long int i = 0; i < libros_size; i++) {
+    for (int i = 0; i < libros_size; i++) {
         //recorre el vocabulario
         for (long long int j = 0; j < vocabulario_size; j++) {
             //va guardanddo el contador de la palabra j en el libro i
@@ -61,9 +65,10 @@ void matrix_to_CSV(string file_name, map<string, int>* diccionarios, int libros_
 
 //guarda el dataframe en csv (este incluye el titulo de cada libro y el vocabulario)
 //los autores estan consientes en c++ no hay dataframes pero shhhhh
-void dataframe_to_CSV(string file_name, map<string, int>* diccionarios, int libros_size, string* vocabulario, long long int vocabulario_size, string* libros) {
+void dataframe_to_CSV(string file_name, map<string, int>* diccionarios, int libros_size, string* vocabulario, long long int vocabulario_size, string* libros,
+                    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {
     fstream fout;
-    fout.open(file_name, ios::out);
+    fout.open(path+"res/"+file_name, ios::out);
     //titulo de la primer columna con libros
     fout << "Libro,";
     for (long long int i = 0; i < vocabulario_size; i++) {
@@ -84,7 +89,10 @@ void dataframe_to_CSV(string file_name, map<string, int>* diccionarios, int libr
 }
 
 int main(int argc, char ** argv){
- 
+    
+    //path de data (tiene que ser de raiz) descomentar si se quiere usar
+    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/";
+
     //numero de libros
     const int libros_size = 6;
     //array de strings con los nombres de los libros
@@ -106,8 +114,24 @@ int main(int argc, char ** argv){
         }
     }
 
+    //marca el tiempo de inicio
+    auto start = chrono::high_resolution_clock::now();
+
     //cuenta palabras de los libros
     count_words(libros, libros_size, diccionarios);
+
+    //marca el tiempo de fin
+    auto end = chrono::high_resolution_clock::now();
+
+    //tiempo de ejecucion
+    auto duration = chrono::duration_cast<chrono::microseconds>(end -start);
+    
+    //guarda tiempo de ejecucion en csv
+    ofstream fout;
+    fout.open(path+"res/tiempos.csv", ios_base::app);
+    fout << vocabulario_size << ",serial," << duration.count() << "\n";
+
+    cout << "Guardando resultados..." << endl;
 
     //guarda la matriz en csv
     matrix_to_CSV("bow-s-matrix.csv", diccionarios, libros_size, vocabulario, vocabulario_size);
