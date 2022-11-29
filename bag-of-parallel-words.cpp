@@ -11,8 +11,9 @@ using namespace std;
 
 //carga el vocabulario en un array de strings
 //para simplificar el código el vocabulario y su size se obtienen del jupyter notebook
-void load_vocabulary(string file_name, string* vocabulario, long long int vocabulario_size) {
-    ifstream in("O:/itam/ComParalelo/Parallel-bag-of-words/data/"+file_name);
+void load_vocabulary(string file_name, string* vocabulario, long long int vocabulario_size,
+                    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {
+    ifstream in(path+"data/"+file_name);
     if (!in) {
         cerr << "Couldn't read file: " << file_name << "\n";
     }
@@ -27,92 +28,84 @@ void load_vocabulary(string file_name, string* vocabulario, long long int vocabu
 //cuenta las palabras de varios archivos y las guarda en sus diccionarios
 void count_parallel_words(string* libros, int libros_size, string* vocabulario,
                         long long int vocabulario_size, map<string, int>* diccionarios,
-                        int** matriz, int* aux,
-                        int process_id, int num_processes) {
+                        int* matriz_aplanada, int* aux,
+                        int process_id, int num_processes, 
+                        string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {
     
-    MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
-	MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-
-
     //validamos la cantidad de libros
     if(libros_size != num_processes){
         cerr << "El numero de procesos debe ser igual al numero de libros\n";
-    }
-
-    cout << "Soy: " << process_id << "\n";
-    cout << "Libro: " << libros[process_id] << "\n";
-
-    //distriubimos los libros
-    ifstream in("O:/itam/ComParalelo/Parallel-bag-of-words/data/"+libros[process_id]+".txt");
-    if (!in) {
-        cerr << "Couldn't read file: " << libros[process_id] << "\n";
-    }
-    while (!in.eof()) {
-        string word;
-        //lee coma por coma y lo guarda en word
-        getline(in, word, ',');
-        //si la palabra esta en el vocabulario
-        if (diccionarios[process_id].count(word) > 0) {
-            //le suma 1 a su contador
-            diccionarios[process_id][word] = diccionarios[process_id][word] + 1;
+    } else{
+        //distriubimos los libros
+        ifstream book(path+"data/"+libros[process_id]+".txt");
+        if (!book) {
+            cerr << "Couldn't read file: " << libros[process_id] << "\n";
         }
-    }
+        while (!book.eof()) {
+            string word;
+            //lee coma por coma y lo guarda en word
+            getline(book, word, ',');
+            //si la palabra esta en el vocabulario
+            if (diccionarios[process_id].count(word) > 0) {
+                //le suma 1 a su contador
+                diccionarios[process_id][word] = diccionarios[process_id][word] + 1;
+            }
+        }
 
-   
-    for (long long int j = 0; j < vocabulario_size; j++) {
-        //va guardanddo los valores de cada diccionario en el array auxiliar
-        aux[j] = diccionarios[process_id][vocabulario[j]];
-    }
+    
+        for (long long int j = 0; j < vocabulario_size; j++) {
+            //va guardanddo los valores de cada diccionario en el array auxiliar
+            aux[j] = diccionarios[process_id][vocabulario[j]];
+        }
 
-    //Juntamos los resultados de cada proceso
-    MPI_Gather(&aux, 
+        //Juntamos los resultados de cada proceso
+        MPI_Gather(aux, 
             vocabulario_size, //cada array tiene el tamaño del vocabulario
             MPI_INT, //manda la cuenta de cada palabra
-            matriz, //matriz donde se guardan los resultados
+            matriz_aplanada, //matriz donde se guardan los resultados
             vocabulario_size, //enviamos lo mismo que recibimos
             MPI_INT, //x2
-            0, 
+            0, //donde lo recibimos 
             MPI_COMM_WORLD);
 
-   
-    
+    }
 }
 
-//guarda la matriz en csv
-void matrix_to_CSV(string file_name, map<string, int>* diccionarios, int libros_size, string* vocabulario, long long int vocabulario_size) {
+//guarda la matriz_aplanada en csv
+void matrix_to_CSV(string file_name, int* matriz_aplanada, int libros_size, long long int vocabulario_size,
+                    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {                        
     fstream fout;
-    fout.open(file_name, ios::out);
-    //recorre los libros
-    for (long long int i = 0; i < libros_size; i++) {
-        //recorre el vocabulario
+    fout.open(path+"res/"+file_name, ios::out);
+    //recorre matriz aplanada y va separando por libros con ayuda de vocabulario_size
+    for (int i = 0; i < libros_size; i++) {
         for (long long int j = 0; j < vocabulario_size; j++) {
-            //va guardanddo el contador de la palabra j en el libro i
-            fout << diccionarios[i][vocabulario[j]] << ",";
+            fout << matriz_aplanada[i*vocabulario_size+j] << ",";
         }
-        //salto de linea para empezar con otro libro
         fout << "\n";
     }
 }
 
+
+
 //guarda el dataframe en csv (este incluye el titulo de cada libro y el vocabulario)
 //los autores estan consientes en c++ no hay dataframes pero shhhhh
-void dataframe_to_CSV(string file_name, map<string, int>* diccionarios, int libros_size, string* vocabulario, long long int vocabulario_size, string* libros) {
+void dataframe_to_CSV(string file_name, string* libros, int libros_size, string* vocabulario,
+                        long long int vocabulario_size, int* matriz_aplanada,
+                        string path = "O:/itam/ComParalelo/Parallel-bag-of-words/" ) {
     fstream fout;
-    fout.open(file_name, ios::out);
+    fout.open(path+"res/"+file_name, ios::out);
     //titulo de la primer columna con libros
     fout << "Libro,";
-    for (long long int i = 0; i < vocabulario_size; i++) {
-        //titulo de cada columna con vocabulario
-        fout << vocabulario[i] << ",";
+    //imprime el vocabulario
+    for (long long int j = 0; j < vocabulario_size; j++) {
+        fout << vocabulario[j] << ",";
     }
-    //empezar con los libros
     fout << "\n";
-    for (long long int i = 0; i < libros_size; i++) {
-        //titulo i 
+    //recorre matriz aplanada y va separando por libros con ayuda de vocabulario_size
+    for (int i = 0; i < libros_size; i++) {
         fout << libros[i] << ",";
-        //valores del vocabulario del libro i
         for (long long int j = 0; j < vocabulario_size; j++) {
-            fout << diccionarios[i][vocabulario[j]] << ",";
+            fout << matriz_aplanada[i*vocabulario_size+j] << ",";
         }
         fout << "\n";
     }
@@ -120,7 +113,9 @@ void dataframe_to_CSV(string file_name, map<string, int>* diccionarios, int libr
 
 int main(int argc, char ** argv){
     
-    cout << "Hola mundo\n";
+    //path de data (tiene que ser de raiz) descomentar si se quiere usar
+    string path = "O:/itam/ComParalelo/Parallel-bag-of-words/";
+    
     //numero de libros
     const int libros_size = 6;
     //array de strings con los nombres de los libros
@@ -134,14 +129,23 @@ int main(int argc, char ** argv){
     map<string, int> diccionarios[libros_size];
 
     //matriz donde se guardan los resultados
-    int** matriz = new int*[libros_size];
+    //aplanada porque na mas no pudimos con matriz normal 
+    int matriz_aplanada[libros_size*vocabulario_size]{0};
+    //int* matriz[libros_size][vocabulario_size]{0};
 
-    cout << "Leyendo vocabulario\n";
+    //array auxiliar donde se guardan los resultados de cada proceso
+    int aux[vocabulario_size]{0};
 
     //carga el vocabulario en el array de strings
     load_vocabulary("vocabulario.txt", vocabulario, vocabulario_size);
 
-    cout << "Iniciando diccionarios\n";
+
+    int num_processes;
+	int process_id = 0;  
+
+    double start;
+    double end; 
+    double duration;
 
     //inicializa los diccionarios con el vocabulario
     for (long long int i = 0; i < libros_size; i++) {
@@ -151,42 +155,45 @@ int main(int argc, char ** argv){
         }
     }
 
-    cout << "Iniciando matriz\n";
-
-    int num_processes = 0;
-
-	int process_id = 0;  
-
-
     MPI_Init(&argc, &argv);
+
+    MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
+	MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
 	
-    //array auxiliar donde se guardan los resultados de cada proceso
-    int* aux = new int[vocabulario_size];
+
+    //marca el tiempo de inicio
+    if (process_id == 0) start = MPI_Wtime();
 
     //contamos las palabras y guardamos los resultados en la matriz
     count_parallel_words(libros, libros_size, vocabulario,
-                         vocabulario_size, diccionarios, matriz, 
+                         vocabulario_size, diccionarios, matriz_aplanada, 
                          aux, process_id, num_processes);
+    
+    //marca el tiempo de fin
+    if (process_id == 0) end = MPI_Wtime();
 
     MPI_Finalize();
 
-    cout << "Fin imprimiendo\n";
 
-    //imprime los 10 primeros de matriz
-    for (long long int i = 0; i < 6; i++) {
-        for (long long int j = 0; j < 10; j++) {
-            cout << matriz[i][j] << ",";
-        }
-        cout << "\n";
+    if (process_id == 0) {
+        //calcula el tiempo de ejecucion
+        duration = (end - start)*1000000; //se multiplica por 1000000 para obtener el tiempo en microsegundos
+
+        cout << "Guardando resultados..." << endl;
+
+        //guarda tiempo de ejecucion en csv
+        ofstream fout;
+        fout.open(path+"res/tiempos.csv", ios_base::app);
+        fout << vocabulario_size << ",parallel," << duration << "\n";
+        
+        //guardamos la matriz aplanada en csv
+        matrix_to_CSV("bow-p-matrix.csv", matriz_aplanada, libros_size, vocabulario_size);
+        
+        //guardamos el dataframe en csv
+        dataframe_to_CSV("bow-p-df.csv", libros, libros_size, vocabulario, vocabulario_size, matriz_aplanada);
     }
 
-
-    //guarda la matriz en csv
-    // matrix_to_CSV("bow-p-matrix.csv", diccionarios, libros_size, vocabulario, vocabulario_size);
-
-    //guarda el dataframe en csv
-    // dataframe_to_CSV("bow-p-df.csv", diccionarios, libros_size, vocabulario, vocabulario_size, libros);
-
+    
     return 420;
 
 }
