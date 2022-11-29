@@ -13,6 +13,7 @@ int main (int argc, char *argv[]) {
     cout<< my_dictionary.at("paralelo")  << "\n";
     cout<< my_dictionary.at("computo")  << "\n";
     cout<< my_dictionary["paralelo"]  << "\n";
+    cout<< my_dictionary[2]  << "\n";
     cout<< my_dictionary.count("inexistente")  << "\n";
     cout<< my_dictionary.count("paralelo")  << "\n";
     my_dictionary.erase("curso");
