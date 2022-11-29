@@ -23,7 +23,8 @@ void load_vocabulary(string file_name, string* vocabulario, long long int vocabu
 }
 
 //cuenta las palabras de varios archivos y las guarda en sus diccionarios
-void count_words(string* libros, long long int libros_size, string* vocabulario, long long int vocabulario_size, map<string, int>* diccionarios) {
+void count_words(string* libros, long long int libros_size, 
+                map<string, int>* diccionarios) {
     for (long long int i = 0; i < libros_size; i++) {
         ifstream in("data/"+libros[i]+".txt");
         if (!in) {
@@ -94,7 +95,7 @@ int main(int argc, char ** argv){
     string* vocabulario = new string[vocabulario_size];
     //diccionarios de cada libro
     map<string, int> diccionarios[libros_size];
-
+    
     //carga el vocabulario en el array de strings
     load_vocabulary("vocabulario.txt", vocabulario, vocabulario_size);
 
@@ -106,7 +107,7 @@ int main(int argc, char ** argv){
     }
 
     //cuenta palabras de los libros
-    count_words(libros, libros_size, vocabulario, vocabulario_size, diccionarios);
+    count_words(libros, libros_size, diccionarios);
 
     //guarda la matriz en csv
     matrix_to_CSV("bow-s-matrix.csv", diccionarios, libros_size, vocabulario, vocabulario_size);
